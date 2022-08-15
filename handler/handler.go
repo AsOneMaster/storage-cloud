@@ -22,6 +22,14 @@ const (
 	FileDisHeaderValue  = "attachment;filename=\""
 )
 
+//check err
+func checkErr(err error, w http.ResponseWriter, errStr string) {
+	if err != nil {
+		io.WriteString(w, errStr)
+		return
+	}
+}
+
 // UploadHandler 处理文件上传
 func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
@@ -107,10 +115,51 @@ func DownloadHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-//check err
-func checkErr(err error, w http.ResponseWriter, errStr string) {
-	if err != nil {
-		io.WriteString(w, errStr)
+// FileMetaUpdateHandler 更新元信息（重命名） curl: http://localhost:8080/file/update?op= &&fileHash= &&fileName=   [注意使用：POST请求测试]
+func FileMetaUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	//文件操作暗号
+	opType := r.Form.Get("op")
+
+	//获取文件sha1值
+	fileSha1 := r.Form.Get("fileHash")
+
+	//获取更新文件名
+	newFileName := r.Form.Get("fileName")
+
+	if opType != "0" {
+		w.WriteHeader(http.StatusForbidden)
 		return
 	}
+	if r.Method != "POST" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	//根据sha1获取文件元信息
+	curFileMeta := meta.GetFileMeta(fileSha1)
+	//重命名文件名
+	curFileMeta.FileName = newFileName
+	curFileMeta.Location = TmpLocation + newFileName
+	//更新文件元信息
+	meta.UpdateFileMeta(curFileMeta)
+	//转换为json值
+	data, err := json.Marshal(curFileMeta)
+
+	checkErr(err, w, "json转换失败")
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
+}
+
+// FileDeleteHandler 文件删除 curl: http://localhost:8080/file/update?fileSha1=
+func FileDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	fileSha1 := r.Form.Get("fileSha1")
+
+	fileMeta := meta.GetFileMeta(fileSha1)
+	//fmt.Println(meta.GetLastFileMetas(2))
+	err := os.Remove(fileMeta.Location)
+	checkErr(err, w, "删除不成功")
+	meta.RemoveFileMeta(fileSha1)
+	//fmt.Println(meta.GetLastFileMetas(2))
+	w.WriteHeader(http.StatusOK)
 }

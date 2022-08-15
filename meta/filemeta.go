@@ -36,3 +36,9 @@ func GetLastFileMetas(count int) []FileMeta {
 	sort.Sort(ByUploadTime(fileMetaArray))
 	return fileMetaArray[0:count]
 }
+
+// RemoveFileMeta 删除元信息
+func RemoveFileMeta(fileSha1 string) {
+	//如果线程同步 要考虑安全问题 加锁
+	delete(fileMetas, fileSha1)
+}
