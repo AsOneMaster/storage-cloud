@@ -58,9 +58,15 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		//从头开始读取，不偏移
 		newFile.Seek(0, io.SeekStart)
 		fileMeta.FileSha1 = util.FileSha1(newFile)
-		meta.UpdateFileMeta(fileMeta)
+		//新增文件到数据库
+		ok := meta.UpLoadFileMetaDB(fileMeta)
 		fmt.Println(fileMeta.FileSha1)
-		http.Redirect(w, r, "/file/upload/success", http.StatusFound)
+		if ok {
+			http.Redirect(w, r, "/file/upload/success", http.StatusFound)
+		} else {
+			w.Write([]byte("上传失败"))
+		}
+
 	}
 
 }
@@ -78,7 +84,8 @@ func GetFileMetaHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
 	fileHash := r.Form["fileHash"][0]
-	fileMeta := meta.GetFileMeta(fileHash)
+	fileMeta, err := meta.GetFileMeta(fileHash)
+	checkErr(err, w, "云文件数据库查询失败")
 	data, err := json.Marshal(fileMeta)
 	checkErr(err, w, "转换json失败")
 	w.Write(data)
@@ -101,8 +108,8 @@ func DownloadHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	fileSha1 := r.Form.Get("fileHash")
 	//获取fileMeta对象信息
-	fm := meta.GetFileMeta(fileSha1)
-
+	fm, err := meta.GetFileMeta(fileSha1)
+	checkErr(err, w, "云文件数据库查询失败")
 	openFile, err := os.Open(fm.Location)
 	checkErr(err, w, "云文件地址获取失败")
 	defer openFile.Close()
@@ -110,7 +117,7 @@ func DownloadHandler(w http.ResponseWriter, r *http.Request) {
 	checkErr(err, w, "云文件读取失败")
 
 	//识别http浏览器响应头 让浏览器识别出是文件下载
-	w.Header().Set(FileTypeHeaderValue, FileTypeHeaderValue)
+	w.Header().Set(FileTypeHeader, FileTypeHeaderValue)
 	w.Header().Set(FileDisHeader, FileDisHeaderValue+fm.FileName+"\"")
 	w.Write(data)
 }
@@ -124,8 +131,8 @@ func FileMetaUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	//获取文件sha1值
 	fileSha1 := r.Form.Get("fileHash")
 
-	//获取更新文件名
-	newFileName := r.Form.Get("fileName")
+	//获取更新文件位置
+	newFileLocation := r.Form.Get("fileAddr")
 
 	if opType != "0" {
 		w.WriteHeader(http.StatusForbidden)
@@ -136,12 +143,13 @@ func FileMetaUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//根据sha1获取文件元信息
-	curFileMeta := meta.GetFileMeta(fileSha1)
+	curFileMeta, err := meta.GetFileMeta(fileSha1)
+	checkErr(err, w, "云文件数据库查询失败")
 	//重命名文件名
-	curFileMeta.FileName = newFileName
-	curFileMeta.Location = TmpLocation + newFileName
+	curFileMeta.Location = newFileLocation
+	//curFileMeta.Location = TmpLocation + newFileName
 	//更新文件元信息
-	meta.UpdateFileMeta(curFileMeta)
+	meta.UpdateFileMetaLocationDB(curFileMeta)
 	//转换为json值
 	data, err := json.Marshal(curFileMeta)
 
@@ -155,9 +163,10 @@ func FileDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	fileSha1 := r.Form.Get("fileSha1")
 
-	fileMeta := meta.GetFileMeta(fileSha1)
+	fileMeta, err := meta.GetFileMeta(fileSha1)
+	checkErr(err, w, "云文件数据库查询失败")
 	//fmt.Println(meta.GetLastFileMetas(2))
-	err := os.Remove(fileMeta.Location)
+	err = os.Remove(fileMeta.Location)
 	checkErr(err, w, "删除不成功")
 	meta.RemoveFileMeta(fileSha1)
 	//fmt.Println(meta.GetLastFileMetas(2))
