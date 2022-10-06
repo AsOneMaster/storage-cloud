@@ -9,12 +9,6 @@ import (
 
 var cosCli *cos.Client
 
-//https://xunstorge-1312816155.cos.ap-chengdu.myqcloud.com
-//COS_REGION:  ap-chengdu
-
-// COS_APP_ID: 1312816155
-//SecretId: AKIDuhJn58D4mIzbBeu34vY1UmpPm8JF0Zw4
-//SecretKey: xrlU1OceS4UknmZAYkjY9byBD4nLgpQr
 // Client : 创建oss client对象
 func Client() *cos.Client {
 	if cosCli != nil {
