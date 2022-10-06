@@ -26,7 +26,7 @@ func UpLoadFileMetaDB(meta FileMeta) bool {
 }
 
 // GetFileMeta 通过sha1值获取文件的元信息对象
-func GetFileMeta(fileSha1 string) (FileMeta, error) {
+func GetFileMeta(fileSha1 string) (*FileMeta, error) {
 	tableFile, err := db.GetFileMeta(fileSha1)
 	file := FileMeta{
 		FileSha1:   tableFile.FileHash,
@@ -35,7 +35,7 @@ func GetFileMeta(fileSha1 string) (FileMeta, error) {
 		Location:   tableFile.FileAddr.String,
 		UploadTime: tableFile.UploadTime,
 	}
-	return file, err
+	return &file, err
 }
 
 // GetLastFileMetas 批量获取文件的元信息对象
